@@ -5,12 +5,14 @@ project(Nete)
 list(APPEND CMAKE_CXX_FLAGS "-std=c++11")
 
 set(SOURCES
-    include/nete.h
-    include/Entity.h
-    include/Component.h
+    include/nete/multivector.h
+    include/nete/nete.h
+    include/nete/Entity.h
+    include/nete/Component.h
 )
 add_custom_target(nete SOURCES ${SOURCES})
 
 enable_testing()
+include_directories(include)
 add_executable (nete_tests tests/nete_tests.cpp)
 add_test(NAME nete_tests COMMAND nete_tests)
