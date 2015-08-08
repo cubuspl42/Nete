@@ -1,18 +1,40 @@
 #pragma once
 
+#include <cassert>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 
 namespace nete { namespace tl {
+    
+template<std::size_t N, typename Tuple>
+struct sizeof_tuple_head;
+
+template<std::size_t N, typename... Args>
+struct sizeof_tuple_head<N, std::tuple<Args...>> : std::integral_constant<std::size_t,
+    sizeof (typename std::tuple_element<N-1, std::tuple<Args...>>::type) +
+        sizeof_tuple_head<N-1, std::tuple<Args...>>::value
+> {};
+
+template<typename... Args>
+struct sizeof_tuple_head<0, std::tuple<Args...>> : std::integral_constant<std::size_t, 0> {};
+
 
 using byte_type = char;
+    
+template<std::size_t I, typename... T> using nth_type_of = typename std::tuple_element<I, std::tuple<T...>>::type;
 
 template<std::size_t I>
 struct index {};
 
 template <typename... T>
-struct types {};
+struct types
+{
+    using tuple_type = std::tuple<T...>;
+    template<std::size_t I>
+    using element = nth_type_of<I, T...>;
+    static constexpr std::size_t size = std::tuple_size<std::tuple<T...>>::value;
+};
 
 struct multivector_traits
 {
@@ -20,22 +42,37 @@ struct multivector_traits
     using size_type = size_t;
 };
 
-template<typename size_type, typename... T>
-class multivector_iterator
+template<class Container>
+class multivector_iterator : public std::iterator<std::random_access_iterator_tag, int>
 {
+    using size_type = typename Container::size_type;
 public:
-    multivector_iterator(size_type index) : _index(index) {}
-    multivector_iterator &operator++() {
-        ++_index;
-        return *this;
-    }
-    multivector_iterator &operator--() {
-        --_index;
-        return *this;
-    }
-    size_type index() {
-        return _index;
-    }
+    multivector_iterator(size_type rhs) : _index(rhs) {}
+
+    inline multivector_iterator& operator+=(difference_type rhs) {_index += rhs; return *this;}
+    inline multivector_iterator& operator-=(difference_type rhs) {_index -= rhs; return *this;}
+    /* inline value_type& operator*(); */
+    /* inline value_type* operator->(); */
+    /* inline value_type& operator[](const int& rhs); */
+
+    inline multivector_iterator& operator++() {++_index; return *this;}
+    inline multivector_iterator& operator--() {--_index; return *this;}
+    inline multivector_iterator operator++(int) {multivector_iterator tmp(*this); ++_index; return tmp;}
+    inline multivector_iterator operator--(int) {multivector_iterator tmp(*this); --_index; return tmp;}
+    inline difference_type operator-(const multivector_iterator& rhs) {return _index-rhs._index;}
+    inline multivector_iterator operator+(difference_type rhs) {return multivector_iterator(_index+rhs);}
+    inline multivector_iterator operator-(difference_type rhs) {return multivector_iterator(_index-rhs);}
+    friend inline multivector_iterator operator+(difference_type lhs, const multivector_iterator& rhs)
+        {return multivector_iterator(lhs+rhs._index);}
+    friend inline multivector_iterator operator-(difference_type lhs, const multivector_iterator& rhs)
+        {return multivector_iterator(lhs-rhs._index);}
+
+    inline bool operator==(const multivector_iterator& rhs) {return _index == rhs._index;}
+    inline bool operator!=(const multivector_iterator& rhs) {return _index != rhs._index;}
+    inline bool operator>(const multivector_iterator& rhs) {return _index > rhs._index;}
+    inline bool operator<(const multivector_iterator& rhs) {return _index < rhs._index;}
+    inline bool operator>=(const multivector_iterator& rhs) {return _index >= rhs._index;}
+    inline bool operator<=(const multivector_iterator& rhs) {return _index <= rhs._index;}
 private:
     size_type _index;
 };
@@ -47,34 +84,31 @@ template<typename... T, class Traits>
 class multivector<types<T...>, Traits>
 {
 public:
-    template<std::size_t I> using value_type = typename std::tuple_element<I, std::tuple<T...>>::type;
-    using tuple_type = std::tuple<T...>;
+    template<std::size_t I> using value_type = nth_type_of<I, T...>;
+    using value_types = types<T...>;
     using allocator_type = typename Traits::allocator_type;
     using storage_type = std::vector<char, allocator_type>;
     template<std::size_t I> using reference = value_type<I>&;
     template<std::size_t I> using const_reference = const value_type<I>&;
     using size_type = typename Traits::size_type;
-    using iterator = multivector_iterator<size_type, T...>;
+    using iterator = multivector_iterator<multivector>;
+    using reverse_iterator = std::reverse_iterator<iterator>;
     template<std::size_t I> using pointer = value_type<I>*;
     template<std::size_t I> using const_pointer = const value_type<I>*;
-    using reverse_iterator = std::reverse_iterator<iterator>;
 
-    static constexpr std::size_t tuple_size = std::tuple_size<tuple_type>::value;
+    static constexpr std::size_t value_types_size = value_types::size;
+
+    static_assert(value_types_size > 0, "");
 
     multivector() = default;
     explicit multivector(const allocator_type& a);
-    multivector(const multivector& x) = default;
-    multivector(multivector&& x) = default;
-    ~multivector() = default;
-    multivector& operator=(const multivector& x) = default;
-    multivector& operator=(multivector&& x) = default;
 
     allocator_type get_allocator() const noexcept;
 
-    iterator               begin()         noexcept;
-    iterator               end()           noexcept;
-    reverse_iterator       rbegin()        noexcept;
-    reverse_iterator       rend()          noexcept;
+    iterator begin() noexcept;
+    iterator end() noexcept;
+    reverse_iterator rbegin() noexcept;
+    reverse_iterator rend() noexcept;
 
     size_type size() const noexcept;
     size_type capacity() const noexcept;
@@ -82,13 +116,17 @@ public:
     void reserve(size_type requested_capacity);
 
     template<std::size_t I>
-    reference<I>       at(size_type i);
+    reference<I> at(size_type i);
     template<std::size_t I>
     const_reference<I> at(size_type i) const;
     template<std::size_t I>
-    reference<I> get(iterator i);
+    reference<I> get(iterator it);
     template<std::size_t I>
-    const_reference<I> get(iterator i) const;
+    const_reference<I> get(iterator it) const;
+    template<std::size_t I>
+    reference<I> get(reverse_iterator rit);
+    template<std::size_t I>
+    const_reference<I> get(reverse_iterator rit) const;
 
     template<std::size_t I>
     pointer<I> data() noexcept;
@@ -99,13 +137,6 @@ public:
     void emplace_back();
     void pop_back();
 
-//    iterator insert(const_iterator position, const tuple_type& x);
-//    iterator insert(const_iterator position, tuple_type&& x);
-//    iterator insert(const_iterator position, size_type n, const tuple_type& x);
-
-//    iterator erase(const_iterator position);
-//    iterator erase(const_iterator first, const_iterator last);
-
     void swap(iterator first, iterator second);
     void clear() noexcept;
     void resize(size_type requested_size);
@@ -114,11 +145,22 @@ private:
     void swap_recursive(iterator first, iterator second, index<0>);
     template<std::size_t I>
     void swap_recursive(iterator first, iterator second, index<I>);
-    
+
     storage_type _storage;
     size_type _size = 0;
     size_type _capacity = 0;
 };
+    
+template<typename... T, class Traits>
+multivector<types<T...>, Traits>::multivector(const allocator_type& a)
+: _storage(a)
+{}
+    
+template<typename... T, class Traits>
+auto multivector<types<T...>, Traits>::get_allocator() const noexcept -> allocator_type
+{
+    return _storage.get_allocator();
+}
 
 template<typename... T, class Traits>
 auto multivector<types<T...>, Traits>::begin() noexcept -> iterator
@@ -130,6 +172,18 @@ template<typename... T, class Traits>
 auto multivector<types<T...>, Traits>::end() noexcept -> iterator
 {
     return iterator{size()};
+}
+
+template<typename... T, class Traits>
+auto multivector<types<T...>, Traits>::rbegin() noexcept -> reverse_iterator
+{
+    return std::reverse_iterator<iterator>{end()};
+}
+
+template<typename... T, class Traits>
+auto multivector<types<T...>, Traits>::rend() noexcept -> reverse_iterator
+{
+    return std::reverse_iterator<iterator>{begin()};
 }
 
 template<typename... T, class Traits>
@@ -158,18 +212,6 @@ void multivector<types<T...>, Traits>::reserve(size_type requested_capacity)
     }
 }
 
-template<std::size_t N, typename Tuple>
-struct sizeof_tuple_head;
-
-template<std::size_t N, typename... Args>
-struct sizeof_tuple_head<N, std::tuple<Args...>> : std::integral_constant<std::size_t,
-    sizeof (typename std::tuple_element<N-1, std::tuple<Args...>>::type) +
-        sizeof_tuple_head<N-1, std::tuple<Args...>>::value
-> {};
-
-template<typename... Args>
-struct sizeof_tuple_head<0, std::tuple<Args...>> : std::integral_constant<std::size_t, 0> {};
-
 template<typename... T, class Traits>
 template<std::size_t I>
 auto multivector<types<T...>, Traits>::at(size_type i) -> reference<I>
@@ -186,33 +228,47 @@ auto multivector<types<T...>, Traits>::at(size_type i) const -> const_reference<
 
 template<typename... T, class Traits>
 template<std::size_t I>
-auto multivector<types<T...>, Traits>::get(iterator i) -> reference<I>
+auto multivector<types<T...>, Traits>::get(iterator it) -> reference<I>
 {
-    assert(i.index() < size());
-    return *(data<I>() + i.index());
+    size_type index = it - begin();
+    assert(index < size());
+    return *(data<I>() + index);
 }
 
 template<typename... T, class Traits>
 template<std::size_t I>
-auto multivector<types<T...>, Traits>::get(iterator i) const -> const_reference<I>
+auto multivector<types<T...>, Traits>::get(iterator it) const -> const_reference<I>
 {
-    return const_cast<multivector*>(this)->get(i);
+    return const_cast<multivector*>(this)->get(it);
+}
+    
+template<typename... T, class Traits>
+template<std::size_t I>
+auto multivector<types<T...>, Traits>::get(reverse_iterator rit) -> reference<I>
+{
+    return get<I>(rit.base() - 1);
 }
 
-template<std::size_t I, class tuple_type>
-auto array_address(byte_type *storage_data, std::size_t capacity)
-    -> typename std::tuple_element<I, tuple_type>::type *
+template<typename... T, class Traits>
+template<std::size_t I>
+auto multivector<types<T...>, Traits>::get(reverse_iterator rit) const -> const_reference<I>
 {
-    using value_type = typename std::tuple_element<I, tuple_type>::type;
-    constexpr auto offset = sizeof_tuple_head<I, tuple_type>::value;
-    return reinterpret_cast<value_type*>(storage_data + offset * capacity);
+    return const_cast<multivector*>(this)->get(rit);
+}
+
+template<class Types, std::size_t I>
+auto array_address(byte_type *storage_data, std::size_t capacity)
+    -> typename Types::template element<I> *
+{
+    constexpr auto offset = sizeof_tuple_head<I, typename Types::tuple_type>::value;
+    return reinterpret_cast<typename Types::template element<I> *>(storage_data + offset * capacity);
 }
 
 template<typename... T, class Traits>
 template<std::size_t I>
 auto multivector<types<T...>, Traits>::data() noexcept -> pointer<I>
 {
-    return array_address<I, tuple_type>(_storage.data(), capacity());
+    return array_address<value_types, I>(_storage.data(), capacity());
 }
 
 template<typename... T, class Traits>
@@ -257,7 +313,7 @@ void multivector<types<T...>, Traits>::swap_recursive(iterator first, iterator s
 template<typename... T, class Traits>
 void multivector<types<T...>, Traits>::swap(iterator first, iterator second)
 {
-    swap_recursive(first, second, index<tuple_size-1>{});
+    swap_recursive(first, second, index<value_types_size-1>{});
 }
 
 template<typename... T, class Traits>
@@ -275,27 +331,28 @@ void shift_array_right(const T *old_address, T *new_address, std::size_t size)
     std::copy(std::reverse_iterator<const T*>(old_address + size), std::reverse_iterator<const T*>(old_address),
               std::reverse_iterator<T*>(new_address + size));
 }
-    
-template<class type_tuple>
+
+template<class Types>
 void shift_arrays_right(byte_type *storage_data, std::size_t old_capacity, std::size_t new_capacity, std::size_t size,
                         index<0>) {}
 
-template<class type_tuple, std::size_t I>
+template<class Types, std::size_t I>
 void shift_arrays_right(byte_type *storage_data, std::size_t old_capacity, std::size_t new_capacity, std::size_t size,
                         index<I>)
 {
-    shift_array_right(array_address<I, type_tuple>(storage_data, old_capacity),
-                      array_address<I, type_tuple>(storage_data, new_capacity), size);
-    shift_arrays_right<type_tuple>(storage_data, old_capacity, new_capacity, size, index<I-1>{});
+    shift_array_right(array_address<Types, I>(storage_data, old_capacity),
+                      array_address<Types, I>(storage_data, new_capacity), size);
+    shift_arrays_right<Types>(storage_data, old_capacity, new_capacity, size, index<I-1>{});
 }
 
 template<typename... T, class Traits>
 void multivector<types<T...>, Traits>::reallocate(size_type requested_capacity)
 {
-    constexpr auto sizeof_tuple = sizeof_tuple_head<tuple_size, tuple_type>::value;
+    using tuple_type = std::tuple<T...>;
+    constexpr auto sizeof_tuple = sizeof_tuple_head<value_types_size, tuple_type>::value;
     _storage.resize(sizeof_tuple * requested_capacity);
-    shift_arrays_right<tuple_type>(_storage.data(), _capacity, requested_capacity, _size, index<tuple_size-1>{});
+    shift_arrays_right<value_types>(_storage.data(), _capacity, requested_capacity, _size, index<value_types_size-1>{});
     _capacity = requested_capacity;
 }
-    
+
 }}

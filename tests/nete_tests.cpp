@@ -9,6 +9,9 @@ TEST_CASE( "multivector appending", "[multivector]" )
 
     multivector<types<char, uint16_t>> v;
 
+    REQUIRE(v.size() == 0);
+    REQUIRE(v.capacity() == 0);
+
     v.emplace_back();
 
     REQUIRE(v.size() == 1);
@@ -95,9 +98,9 @@ TEST_CASE( "multivector reserving", "[multivector]" )
     REQUIRE(v.at<0>(0) == 'a');
     REQUIRE(v.at<1>(0) == 0xAAAA);
     REQUIRE(v.at<2>(0) == 0xBBBBBBBB);
-    
+
     v.resize(32);
-    
+
     REQUIRE(v.size() == 32);
     REQUIRE(v.capacity() >= 32);
 
@@ -106,7 +109,7 @@ TEST_CASE( "multivector reserving", "[multivector]" )
     v.at<2>(31) = 0xDDDDDDDD;
 
     v.reserve(64);
-    
+
     REQUIRE(v.size() == 32);
     REQUIRE(v.capacity() >= 64);
 
@@ -162,4 +165,155 @@ TEST_CASE( "multivector swapping", "[multivector]" )
     REQUIRE(v.at<0>(2) == 'a');
     REQUIRE(v.at<1>(2) == 0xAAAA);
     REQUIRE(v.at<2>(2) == 0xBBBBBBBB);
+}
+
+TEST_CASE( "multivector iteration", "[multivector]" )
+{
+    using namespace nete::tl;
+
+    multivector<types<char, uint16_t, uint32_t>> v;
+
+    v.resize(4);
+
+    REQUIRE(v.size() == 4);
+
+    v.at<0>(0) = 'a';
+    v.at<1>(0) = 0xAAAA;
+    v.at<2>(0) = 0xBBBBBBBB;
+    v.at<0>(1) = 'b';
+    v.at<1>(1) = 0xCCCC;
+    v.at<2>(1) = 0xDDDDDDDD;
+    v.at<0>(2) = 'c';
+    v.at<1>(2) = 0xEEEE;
+    v.at<2>(2) = 0xFFFFFFFF;
+    v.at<0>(3) = 'd';
+    v.at<1>(3) = 0xABAB;
+    v.at<2>(3) = 0xBCBCBCBC;
+
+    int i = 0;
+
+    for(auto it = v.begin(); it != v.end(); ++it) {
+        switch(i) {
+            case 0:
+                REQUIRE(v.get<0>(it) == 'a');
+                REQUIRE(v.get<1>(it) == 0xAAAA);
+                REQUIRE(v.get<2>(it) == 0xBBBBBBBB);
+                break;
+            case 1:
+                REQUIRE(v.get<0>(it) == 'b');
+                REQUIRE(v.get<1>(it) == 0xCCCC);
+                REQUIRE(v.get<2>(it) == 0xDDDDDDDD);
+                break;
+            case 2:
+                REQUIRE(v.get<0>(it) == 'c');
+                REQUIRE(v.get<1>(it) == 0xEEEE);
+                REQUIRE(v.get<2>(it) == 0xFFFFFFFF);
+                break;
+            case 3:
+                REQUIRE(v.get<0>(it) == 'd');
+                REQUIRE(v.get<1>(it) == 0xABAB);
+                REQUIRE(v.get<2>(it) == 0xBCBCBCBC);
+                break;
+            default:
+                REQUIRE(0 == 1);
+        }
+        ++i;
+    }
+}
+
+TEST_CASE( "multivector reverse iteration", "[multivector]" )
+{
+    using namespace nete::tl;
+
+    multivector<types<char, uint16_t, uint32_t>> v;
+
+    v.resize(4);
+
+    REQUIRE(v.size() == 4);
+
+    v.at<0>(0) = 'a';
+    v.at<1>(0) = 0xAAAA;
+    v.at<2>(0) = 0xBBBBBBBB;
+    v.at<0>(1) = 'b';
+    v.at<1>(1) = 0xCCCC;
+    v.at<2>(1) = 0xDDDDDDDD;
+    v.at<0>(2) = 'c';
+    v.at<1>(2) = 0xEEEE;
+    v.at<2>(2) = 0xFFFFFFFF;
+    v.at<0>(3) = 'd';
+    v.at<1>(3) = 0xABAB;
+    v.at<2>(3) = 0xBCBCBCBC;
+
+    int i = 0;
+
+    for(auto it = v.rbegin(); it != v.rend(); ++it) {
+        switch(i) {
+            case 3:
+                REQUIRE(v.get<0>(it) == 'a');
+                REQUIRE(v.get<1>(it) == 0xAAAA);
+                REQUIRE(v.get<2>(it) == 0xBBBBBBBB);
+                break;
+            case 2:
+                REQUIRE(v.get<0>(it) == 'b');
+                REQUIRE(v.get<1>(it) == 0xCCCC);
+                REQUIRE(v.get<2>(it) == 0xDDDDDDDD);
+                break;
+            case 1:
+                REQUIRE(v.get<0>(it) == 'c');
+                REQUIRE(v.get<1>(it) == 0xEEEE);
+                REQUIRE(v.get<2>(it) == 0xFFFFFFFF);
+                break;
+            case 0:
+                REQUIRE(v.get<0>(it) == 'd');
+                REQUIRE(v.get<1>(it) == 0xABAB);
+                REQUIRE(v.get<2>(it) == 0xBCBCBCBC);
+                break;
+            default:
+                REQUIRE(0 == 1);
+        }
+        ++i;
+    }
+}
+
+TEST_CASE( "multivector assigning", "[multivector]" )
+{
+    using namespace nete::tl;
+
+    multivector<types<char, uint16_t, uint32_t>> v;
+
+    v.resize(4);
+
+    REQUIRE(v.size() == 4);
+
+    v.at<0>(0) = 'a';
+    v.at<1>(0) = 0xAAAA;
+    v.at<2>(0) = 0xBBBBBBBB;
+    v.at<0>(1) = 'b';
+    v.at<1>(1) = 0xCCCC;
+    v.at<2>(1) = 0xDDDDDDDD;
+    v.at<0>(2) = 'c';
+    v.at<1>(2) = 0xEEEE;
+    v.at<2>(2) = 0xFFFFFFFF;
+    v.at<0>(3) = 'd';
+    v.at<1>(3) = 0xABAB;
+    v.at<2>(3) = 0xBCBCBCBC;
+
+    multivector<types<char, uint16_t, uint32_t>> v1;
+
+    v1 = v;
+
+    REQUIRE(v1.size() == v.size());
+    REQUIRE(v1.capacity() == v.capacity());
+    REQUIRE(v1.get<0>(0) == 'a');
+    REQUIRE(v1.get<1>(0) == 0xAAAA);
+    REQUIRE(v1.get<2>(0) == 0xBBBBBBBB);
+    REQUIRE(v1.get<0>(1) == 'b');
+    REQUIRE(v1.get<1>(1) == 0xCCCC);
+    REQUIRE(v1.get<2>(1) == 0xDDDDDDDD);
+    REQUIRE(v1.get<0>(2) == 'c');
+    REQUIRE(v1.get<1>(2) == 0xEEEE);
+    REQUIRE(v1.get<2>(2) == 0xFFFFFFFF);
+    REQUIRE(v1.get<0>(3) == 'd');
+    REQUIRE(v1.get<1>(3) == 0xABAB);
+    REQUIRE(v1.get<2>(3) == 0xBCBCBCBC);
 }
