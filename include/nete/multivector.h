@@ -7,6 +7,33 @@
 
 namespace nete { namespace tl {
     
+    template<typename T>
+    T* align_array(std::size_t size, void*& ptr, std::size_t& space)
+    {
+        std::align(alignof(T), sizeof(T)*size, ptr, space);
+        T *aligned_ptr = reinterpret_cast<T*>(ptr);
+        space -= sizeof(T)*size;
+        ptr = static_cast<char*>(ptr) + sizeof(T)*size;
+        return aligned_ptr;
+    }
+    
+    template<typename Head, typename... Tail>
+    void multi_uninitialized_fill(char *ptr, std::size_t size, std::size_t capacity, std::size_t space,
+                                  const Head &value, const Tail &...values)
+    {
+        Head *first = align_array<Head>(capacity, ptr, space);
+        std::uninitialized_fill(first, first+size, value);
+        try {
+            multi_uninitialized_fill(ptr, size, capacity, values...);
+        } catch(...) {
+            Head *last = first + size;
+            for (; first != last; ++first) {
+                first->~Value();
+            }
+            throw;
+        }
+    }
+    
 template<std::size_t N, typename Tuple>
 struct sizeof_tuple_head;
 
@@ -97,10 +124,13 @@ public:
     template<std::size_t I> using const_pointer = const value_type<I>*;
 
     static constexpr std::size_t value_types_size = value_types::size;
+    static constexpr std::size_t sizeof_value_types = sizeof_tuple_head<value_types_size, std::tuple<T...>>::value;
 
     static_assert(value_types_size > 0, "");
 
     multivector() = default;
+    template<typename Head, typename... Tail>
+    multivector(size_type n, const Head &value, const Tail &...values);
     explicit multivector(const allocator_type& a);
 
     allocator_type get_allocator() const noexcept;
@@ -150,6 +180,14 @@ private:
     size_type _size = 0;
     size_type _capacity = 0;
 };
+    
+    template<typename... T, class Traits>
+    template<typename Head, typename... Tail>
+    multivector<types<T...>, Traits>::multivector(size_type n, const Head &value, const Tail &...values)
+    : _storage(sizeof_value_types*n)
+    {
+        multi_uninitialized_fill(_storage.data(), n, n, value, values...);
+    }
     
 template<typename... T, class Traits>
 multivector<types<T...>, Traits>::multivector(const allocator_type& a)
