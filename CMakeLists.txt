@@ -5,10 +5,12 @@ project(Nete)
 list(APPEND CMAKE_CXX_FLAGS "-std=c++11")
 
 set(SOURCES
-    include/nete/multivector.h
-    include/nete/nete.h
+    include/nete/tl/memory.h
+    include/nete/tl/utility.h
+    include/nete/tl/multivector.h
     include/nete/Entity.h
     include/nete/Component.h
+    include/nete/nete.h
 )
 add_custom_target(nete SOURCES ${SOURCES})
 
