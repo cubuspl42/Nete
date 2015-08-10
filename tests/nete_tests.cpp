@@ -31,7 +31,7 @@ TEST_CASE( "multivector appending", "[multivector]" )
     REQUIRE(v.at<0>(0) == 'a');
     REQUIRE(v.at<1>(0) == 0xFFFF);
 
-    char layout_0[] = {'a', '\xff', '\xff'};
+    char layout_0[] = {'a', '\x00', '\xff', '\xff'};
 
     REQUIRE(!memcmp(storage, layout_0, sizeof(layout_0)));
 
@@ -87,7 +87,7 @@ TEST_CASE( "multivector reserving", "[multivector]" )
     REQUIRE(v.at<2>(0) == 0xBBBBBBBB);
 
     const char *storage = v.storage();
-    char layout_0[] = {'a', '\xaa', '\xaa', '\xbb', '\xbb', '\xbb', '\xbb'};
+    char layout_0[] = {'a', '\x00', '\xaa', '\xaa', '\xbb', '\xbb', '\xbb', '\xbb'};
 
     REQUIRE(!memcmp(storage, layout_0, sizeof(layout_0)));
 
