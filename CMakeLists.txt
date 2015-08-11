@@ -12,9 +12,15 @@ set(SOURCES
     include/nete/Component.h
     include/nete/nete.h
 )
+
+set(TESTS_SOURCES
+    tests/nete_tl_tests.cpp
+    tests/nete_tests.cpp
+)
+
 add_custom_target(nete SOURCES ${SOURCES})
 
 enable_testing()
 include_directories(include)
-add_executable (nete_tests tests/nete_tests.cpp)
+add_executable (nete_tests ${TESTS_SOURCES})
 add_test(NAME nete_tests COMMAND nete_tests)

@@ -82,23 +82,16 @@ struct multivector_traits {
 
 template <class Container>
 class multivector_iterator
-    : public std::iterator<std::random_access_iterator_tag, int> {
-  using size_type = typename Container::size_type;
-
+    : public std::iterator<std::random_access_iterator_tag,
+                           typename Container::size_type> {
 public:
+  using base = std::iterator<std::random_access_iterator_tag,
+                             typename Container::size_type>;
+  using size_type = typename Container::size_type;
+  using difference_type = typename base::difference_type;
   multivector_iterator(size_type rhs) : _index(rhs) {}
 
-  inline multivector_iterator &operator+=(difference_type rhs) {
-    _index += rhs;
-    return *this;
-  }
-  inline multivector_iterator &operator-=(difference_type rhs) {
-    _index -= rhs;
-    return *this;
-  }
-  /* inline value_type& operator*(); */
-  /* inline value_type* operator->(); */
-  /* inline value_type& operator[](const int& rhs); */
+  size_type operator*() { return _index; }
 
   inline multivector_iterator &operator++() {
     ++_index;
@@ -127,6 +120,7 @@ public:
   inline multivector_iterator operator-(difference_type rhs) {
     return multivector_iterator(_index - rhs);
   }
+
   friend inline multivector_iterator
   operator+(difference_type lhs, const multivector_iterator &rhs) {
     return multivector_iterator(lhs + rhs._index);
@@ -134,6 +128,15 @@ public:
   friend inline multivector_iterator
   operator-(difference_type lhs, const multivector_iterator &rhs) {
     return multivector_iterator(lhs - rhs._index);
+  }
+
+  inline multivector_iterator &operator+=(difference_type rhs) {
+    _index += rhs;
+    return *this;
+  }
+  inline multivector_iterator &operator-=(difference_type rhs) {
+    _index -= rhs;
+    return *this;
   }
 
   inline bool operator==(const multivector_iterator &rhs) {
@@ -187,8 +190,8 @@ struct multivector_base<types<T...>, Traits> {
   multivector_base &operator=(const multivector_base &x) = delete;
 
   storage_type _storage;
-  size_type _capacity = 0;
-  size_type _size = 0;
+  size_type _capacity;
+  size_type _size;
   address_tuple _arrays;
 };
 
