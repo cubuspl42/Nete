@@ -1,6 +1,8 @@
 #pragma once
 
+#include "fast_vector.h"
 #include "memory.h"
+#include "type_traits.h"
 #include "utility.h"
 
 #include <array>
@@ -76,6 +78,7 @@ std::tuple<T *...> calculate_multivector_pointers(
 struct multivector_traits {
   using allocator_type = std::allocator<char>;
   using size_type = size_t;
+  static constexpr bool disable_initialization = false;
 };
 
 template <class Container>
@@ -166,7 +169,7 @@ struct multivector_base;
 template <typename... T, class Traits>
 struct multivector_base<types<T...>, Traits> {
   using allocator_type = typename Traits::allocator_type;
-  using storage_type = std::vector<char, allocator_type>;
+  using storage_type = fast_vector<char, allocator_type>;
   using size_type = typename Traits::size_type;
   using offset_array = std::array<std::size_t, sizeof...(T)>;
   using address_tuple = std::tuple<T *...>;
@@ -207,14 +210,22 @@ public:
   using reverse_iterator = std::reverse_iterator<iterator>;
   template <std::size_t I> using pointer = value_type<I> *;
   template <std::size_t I> using const_pointer = const value_type<I> *;
+  using initialization_t =
+      typename std::conditional<Traits::disable_initialization,
+                                disable_initialization_t,
+                                enable_initialization_t>::type;
 
   using multivector_base_type = multivector_base<value_types, Traits>;
 
   static constexpr std::size_t value_types_size = value_types::size;
   static constexpr std::size_t sizeof_value_types =
       sizeof_tuple_head<value_types_size, std::tuple<T...>>::value;
+  static constexpr initialization_t initialization_strategy =
+      initialization_t{};
 
   static_assert(value_types_size > 0, "");
+  static_assert(!Traits::disable_initialization || are_trivial<T...>::value,
+                "Initialization can be disabled only for trivial types!");
 
   explicit multivector(const allocator_type &alloc = allocator_type{});
   template <typename... Args> multivector(size_type size, const Args &... args);
@@ -273,21 +284,24 @@ multivector<types<T...>, Traits>::multivector(size_type size,
                                               const Args &... args)
     : _base{allocator_type{}, size, size} {
   const std::tuple<const T &...> &values{std::forward<const Args &>(args)...};
-  multi_uninitialized_fill(_base._arrays, 0, size, values);
+  multi_uninitialized_fill(_base._arrays, 0, size, values,
+                           initialization_strategy);
 }
 
 template <typename... T, class Traits>
 multivector<types<T...>, Traits>::multivector(size_type size,
                                               const allocator_type &alloc)
     : _base{alloc, size, size} {
-  multi_uninitialized_construct(_base._arrays, 0, size);
+  multi_uninitialized_construct(_base._arrays, 0, size,
+                                initialization_strategy);
 }
 
 template <typename... T, class Traits>
 multivector<types<T...>, Traits>::multivector(const multivector &x)
     : _base{x.get_allocator(), x.size(), x.size()} {
   const std::tuple<const T *...> &x_base_arrays = x._base._arrays;
-  multi_uninitialized_copy(x_base_arrays, _base._capacity, _base._arrays);
+  multi_uninitialized_copy(x_base_arrays, _base._capacity, _base._arrays,
+                           initialization_strategy);
 }
 
 template <typename... T, class Traits>
@@ -435,9 +449,11 @@ template <typename... T, class Traits>
 void multivector<types<T...>, Traits>::resize(size_type requested_size) {
   reserve(requested_size);
   if (size() < requested_size) {
-    multi_uninitialized_construct(_base._arrays, size(), requested_size);
+    multi_uninitialized_construct(_base._arrays, size(), requested_size,
+                                  initialization_strategy);
   } else {
-    multi_destroy(_base._arrays, requested_size, size());
+    multi_destroy(_base._arrays, requested_size, size(),
+                  initialization_strategy);
   }
   _base._size = requested_size;
 }
@@ -449,9 +465,11 @@ void multivector<types<T...>, Traits>::resize(size_type requested_size,
   reserve(requested_size);
   if (size() < requested_size) {
     const std::tuple<const T &...> &values{std::forward<const Args &>(args)...};
-    multi_uninitialized_fill(_base._arrays, size(), requested_size, values);
+    multi_uninitialized_fill(_base._arrays, size(), requested_size, values,
+                             initialization_strategy);
   } else {
-    multi_destroy(_base._arrays, size(), requested_size);
+    multi_destroy(_base._arrays, size(), requested_size,
+                  initialization_strategy);
   }
   _base._size = requested_size;
 }
