@@ -19,19 +19,7 @@ template <typename... T> using last_type_of = nth_type_of<sizeof...(T)-1, T...>;
 
 // you can't partially specialize a function in C++, this class is a workaround
 // for that
-template <std::size_t I>
-struct index : std::integral_constant<std::size_t, I> {};
-
-struct index_negative {};
-
-template <std::size_t I> struct previous_index_impl {
-  using type = index<I - 1>;
-};
-
-template <> struct previous_index_impl<0> { using type = index_negative; };
-
-template <std::size_t I>
-using previous_index = typename previous_index_impl<I>::type;
+template <int I> struct index : std::integral_constant<int, I> {};
 
 // a type seqence, a bit like tuple, but compile-time only
 template <typename... T> struct types {
@@ -39,20 +27,6 @@ template <typename... T> struct types {
   template <std::size_t I> using element = nth_type_of<I, T...>;
   static constexpr std::size_t size = std::tuple_size<std::tuple<T...>>::value;
 };
-
-template <typename ForwardIt> void destroy(ForwardIt first, ForwardIt last) {
-  using value_type = typename std::iterator_traits<ForwardIt>::value_type;
-  for (; first != last; ++first) {
-    first->~value_type();
-  }
-}
-
-template <typename... T>
-void multi_destroy(const std::tuple<T *...> arrays, std::size_t first_index,
-                   std::size_t last_index) {
-  constexpr std::size_t N = sizeof...(T);
-  multi_destroy_impl(arrays, first_index, last_index, index<N - 1>{});
-}
 
 // a ceiling of integer division
 template <typename T> T div_ceil(T a, T b) {

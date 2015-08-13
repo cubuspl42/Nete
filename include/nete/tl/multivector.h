@@ -19,12 +19,12 @@ void fill_multivector_offsets(std::array<std::size_t, N> &offsets,
   offsets[0] = offset;
 }
 
-template <std::size_t N, std::size_t I, typename... T>
+template <std::size_t N, int I, typename... T>
 void fill_multivector_offsets(std::array<std::size_t, N> &offsets,
                               std::size_t size, types<T...>, index<I> i) {
   using prev_value_type = nth_type_of<I - 1, T...>;
   using value_type = nth_type_of<I, T...>;
-  fill_multivector_offsets(offsets, size, types<T...>{}, previous_index<I>{});
+  fill_multivector_offsets(offsets, size, types<T...>{}, index<I - 1>{});
   std::size_t prev_offset = offsets[I - 1];
   std::size_t offset = next_multiple_of_gte(
       prev_offset + sizeof(prev_value_type) * size, alignof(value_type));
@@ -36,7 +36,7 @@ std::array<std::size_t, sizeof...(T)>
 calculate_multivector_offsets(std::size_t size) {
   constexpr std::size_t N = sizeof...(T);
   std::array<std::size_t, N> offsets;
-  fill_multivector_offsets(offsets, size, types<T...>{}, previous_index<N>{});
+  fill_multivector_offsets(offsets, size, types<T...>{}, index<N - 1>{});
   return offsets;
 }
 
@@ -50,16 +50,15 @@ template <typename... T>
 void calculate_multivector_pointers_impl(
     std::tuple<T *...> &arrays,
     const std::array<std::size_t, sizeof...(T)> &offsets, void *storage,
-    index_negative) {}
+    index<-1>) {}
 
-template <std::size_t I, typename... T>
+template <int I, typename... T>
 void calculate_multivector_pointers_impl(
     std::tuple<T *...> &arrays,
     const std::array<std::size_t, sizeof...(T)> &offsets, void *storage,
     index<I>) {
   using value_type = nth_type_of<I, T...>;
-  calculate_multivector_pointers_impl(arrays, offsets, storage,
-                                      previous_index<I>{});
+  calculate_multivector_pointers_impl(arrays, offsets, storage, index<I - 1>{});
   char *storage_data = reinterpret_cast<char *>(storage);
   std::get<I>(arrays) =
       reinterpret_cast<value_type *>(storage_data + offsets[I]);
@@ -70,8 +69,7 @@ std::tuple<T *...> calculate_multivector_pointers(
     const std::array<std::size_t, sizeof...(T)> &offsets, void *storage) {
   constexpr std::size_t N = sizeof...(T);
   std::tuple<T *...> arrays;
-  calculate_multivector_pointers_impl(arrays, offsets, storage,
-                                      previous_index<N>{});
+  calculate_multivector_pointers_impl(arrays, offsets, storage, index<N - 1>{});
   return arrays;
 }
 
@@ -259,9 +257,8 @@ public:
   void swap(iterator first, iterator second);
 
 private:
-  void swap_impl(iterator first, iterator second, index_negative);
-  template <std::size_t I>
-  void swap_impl(iterator first, iterator second, index<I>);
+  void swap_impl(iterator first, iterator second, index<-1>);
+  template <int I> void swap_impl(iterator first, iterator second, index<I>);
 
   multivector_base_type _base;
 };
@@ -461,19 +458,18 @@ void multivector<types<T...>, Traits>::resize(size_type requested_size,
 
 template <typename... T, class Traits>
 void multivector<types<T...>, Traits>::swap(iterator first, iterator second) {
-  swap_impl(first, second, previous_index<value_types_size>{});
+  swap_impl(first, second, index<value_types_size - 1>{});
 }
 
 template <typename... T, class Traits>
 void multivector<types<T...>, Traits>::swap_impl(iterator first,
-                                                 iterator second,
-                                                 index_negative) {}
+                                                 iterator second, index<-1>) {}
 
 template <typename... T, class Traits>
-template <std::size_t I>
+template <int I>
 void multivector<types<T...>, Traits>::swap_impl(iterator first,
                                                  iterator second, index<I>) {
-  swap_impl(first, second, previous_index<I>{});
+  swap_impl(first, second, index<I - 1>{});
   std::swap(get<I>(first), get<I>(second));
 }
 
