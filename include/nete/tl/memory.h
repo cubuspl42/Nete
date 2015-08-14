@@ -114,14 +114,14 @@ template <typename... T>
 void multi_uninitialized_fill_impl(std::tuple<T *...> arrays,
                                    std::size_t first_index,
                                    std::size_t last_index,
-                                   const std::tuple<const T &...> &values,
+                                   std::tuple<const T &...> values,
                                    enable_initialization_t, index<-1>) {}
 
 template <int I, typename... T>
 void multi_uninitialized_fill_impl(std::tuple<T *...> arrays,
                                    std::size_t first_index,
                                    std::size_t last_index,
-                                   const std::tuple<const T &...> &values,
+                                   std::tuple<const T &...> values,
                                    enable_initialization_t initialization,
                                    index<I>) {
   constexpr std::size_t N = sizeof...(T), J = N - I - 1;
@@ -129,8 +129,7 @@ void multi_uninitialized_fill_impl(std::tuple<T *...> arrays,
 
   value_type *first = std::get<J>(arrays) + first_index;
   value_type *last = std::get<J>(arrays) + last_index;
-  std::uninitialized_fill(
-      first, last, std::forward<const value_type &>(std::get<J>(values)));
+  std::uninitialized_fill(first, last, std::get<J>(values));
   try {
     multi_uninitialized_fill_impl(arrays, first_index, last_index, values,
                                   initialization, index<I - 1>{});
@@ -140,12 +139,29 @@ void multi_uninitialized_fill_impl(std::tuple<T *...> arrays,
   }
 }
 
+template <typename... T>
+void multi_uninitialized_fill_impl(std::tuple<T *...> arrays,
+                                   std::size_t first_index,
+                                   std::size_t last_index,
+                                   std::tuple<const T &...> values,
+                                   disable_initialization_t, index<-1>) {}
+
 template <int I, typename... T>
 void multi_uninitialized_fill_impl(std::tuple<T *...> arrays,
                                    std::size_t first_index,
                                    std::size_t last_index,
-                                   const std::tuple<const T &...> &values,
-                                   disable_initialization_t, index<I>) {}
+                                   std::tuple<const T &...> values,
+                                   disable_initialization_t initialization,
+                                   index<I>) {
+  constexpr std::size_t N = sizeof...(T), J = N - I - 1;
+  using value_type = nth_type_of<J, T...>;
+
+  value_type *first = std::get<J>(arrays) + first_index;
+  value_type *last = std::get<J>(arrays) + last_index;
+  std::fill(first, last, std::get<J>(values));
+  multi_uninitialized_fill_impl(arrays, first_index, last_index, values,
+                                initialization, index<I - 1>{});
+}
 
 template <typename... T, typename initialization_t>
 void multi_uninitialized_fill(std::tuple<T *...> arrays,
@@ -158,13 +174,13 @@ void multi_uninitialized_fill(std::tuple<T *...> arrays,
 }
 
 template <typename... T>
-void multi_uninitialized_copy_impl(const std::tuple<const T *...> &in_arrays,
+void multi_uninitialized_copy_impl(std::tuple<const T *...> in_arrays,
                                    std::size_t size,
                                    std::tuple<T *...> out_arrays,
                                    enable_initialization_t, index<-1>) {}
 
 template <int I, typename... T>
-void multi_uninitialized_copy_impl(const std::tuple<const T *...> &in_arrays,
+void multi_uninitialized_copy_impl(std::tuple<const T *...> in_arrays,
                                    std::size_t size,
                                    std::tuple<T *...> out_arrays,
                                    enable_initialization_t initialization,
@@ -184,7 +200,7 @@ void multi_uninitialized_copy_impl(const std::tuple<const T *...> &in_arrays,
 }
 
 template <typename... T>
-void multi_uninitialized_copy(const std::tuple<const T *...> &in_arrays,
+void multi_uninitialized_copy(std::tuple<const T *...> in_arrays,
                               std::size_t size, std::tuple<T *...> out_arrays,
                               enable_initialization_t initialization) {
   constexpr std::size_t N = sizeof...(T);
@@ -193,14 +209,14 @@ void multi_uninitialized_copy(const std::tuple<const T *...> &in_arrays,
 }
 
 template <typename... T>
-void multi_uninitialized_copy_impl(const std::tuple<const T *...> &in_arrays,
+void multi_uninitialized_copy_impl(std::tuple<const T *...> in_arrays,
                                    std::size_t size,
                                    std::tuple<T *...> out_arrays,
                                    disable_initialization_t,
                                    index<-1>) noexcept {}
 
 template <int I, typename... T>
-void multi_uninitialized_copy_impl(const std::tuple<const T *...> &in_arrays,
+void multi_uninitialized_copy_impl(std::tuple<const T *...> in_arrays,
                                    std::size_t size,
                                    std::tuple<T *...> out_arrays,
                                    disable_initialization_t,
@@ -217,7 +233,7 @@ void multi_uninitialized_copy_impl(const std::tuple<const T *...> &in_arrays,
 
 template <typename... T>
 void multi_uninitialized_copy(
-    const std::tuple<const T *...> &in_arrays, std::size_t size,
+    std::tuple<const T *...> in_arrays, std::size_t size,
     std::tuple<T *...> out_arrays,
     disable_initialization_t initialization) noexcept {
   constexpr std::size_t N = sizeof...(T);

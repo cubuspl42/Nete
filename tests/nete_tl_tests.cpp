@@ -644,8 +644,8 @@ struct fast_multivector_traits {
   static constexpr bool disable_initialization = true;
 };
 
-template <typename... T>
-using fast_multivector = nete::tl::multivector<T..., fast_multivector_traits>;
+template <typename Types>
+using fast_multivector = nete::tl::multivector<Types, fast_multivector_traits>;
 
 TEST_CASE("multivector initialization", "[multivector]") {
   SECTION("initialization enabled") {
@@ -683,12 +683,23 @@ TEST_CASE("multivector initialization", "[multivector]") {
     }
 
     int new_size = 16;
-
     v.resize(new_size);
 
     for (int i = 0; i < new_size; ++i) {
       REQUIRE(v.at<0>(i) != char{});
       REQUIRE(v.at<1>(i) != uint16_t{});
+    }
+
+    int final_size = 32;
+    v.resize(final_size, 'a', 16);
+
+    for (int i = 0; i < new_size; ++i) {
+      REQUIRE(v.at<0>(i) != char{});
+      REQUIRE(v.at<1>(i) != uint16_t{});
+    }
+    for (int i = new_size; i < final_size; ++i) {
+      REQUIRE(v.at<0>(i) == 'a');
+      REQUIRE(v.at<1>(i) == 16);
     }
   }
 }

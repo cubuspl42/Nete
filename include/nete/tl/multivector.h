@@ -283,7 +283,7 @@ template <typename... Args>
 multivector<types<T...>, Traits>::multivector(size_type size,
                                               const Args &... args)
     : _base{allocator_type{}, size, size} {
-  const std::tuple<const T &...> &values{std::forward<const Args &>(args)...};
+  std::tuple<const T &...> values{args...};
   multi_uninitialized_fill(_base._arrays, 0, size, values,
                            initialization_strategy);
 }
@@ -464,7 +464,7 @@ void multivector<types<T...>, Traits>::resize(size_type requested_size,
                                               const Args &... args) {
   reserve(requested_size);
   if (size() < requested_size) {
-    const std::tuple<const T &...> &values{std::forward<const Args &>(args)...};
+    std::tuple<const T &...> values{args...};
     multi_uninitialized_fill(_base._arrays, size(), requested_size, values,
                              initialization_strategy);
   } else {
