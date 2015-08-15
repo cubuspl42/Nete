@@ -199,8 +199,8 @@ fast_vector<T, Allocator>::fast_vector(const fast_vector &x)
 }
 
 template <typename T, class Allocator>
-auto fast_vector<T, Allocator>::operator=(const fast_vector &x)
-    -> fast_vector & {
+auto fast_vector<T, Allocator>::operator=(const fast_vector &x) -> fast_vector
+    & {
   fast_vector tmp{x};
   std::swap(*this, tmp);
   return *this;

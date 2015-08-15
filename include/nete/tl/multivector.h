@@ -14,31 +14,33 @@
 namespace nete {
 namespace tl {
 
-template <std::size_t N, typename... T>
-void fill_multivector_offsets(std::array<std::size_t, N> &offsets,
-                              std::size_t size, types<T...>, index<0>) {
-  std::size_t offset = 0;
-  offsets[0] = offset;
-}
+template <int I, std::size_t N, typename... T>
+struct calculate_multivector_offsets_impl {
+  void operator()(std::array<std::size_t, N> &offsets, std::size_t size) {
+    using prev_value_type = nth_type_of<I - 1, T...>;
+    using value_type = nth_type_of<I, T...>;
+    calculate_multivector_offsets_impl<I - 1, N, T...>{}(offsets, size);
+    std::size_t prev_offset = offsets[I - 1];
+    std::size_t offset = next_multiple_of_gte(
+        prev_offset + sizeof(prev_value_type) * size, alignof(value_type));
+    offsets[I] = offset;
+  }
+};
 
-template <std::size_t N, int I, typename... T>
-void fill_multivector_offsets(std::array<std::size_t, N> &offsets,
-                              std::size_t size, types<T...>, index<I> i) {
-  using prev_value_type = nth_type_of<I - 1, T...>;
-  using value_type = nth_type_of<I, T...>;
-  fill_multivector_offsets(offsets, size, types<T...>{}, index<I - 1>{});
-  std::size_t prev_offset = offsets[I - 1];
-  std::size_t offset = next_multiple_of_gte(
-      prev_offset + sizeof(prev_value_type) * size, alignof(value_type));
-  offsets[I] = offset;
-}
+template <std::size_t N, typename... T>
+struct calculate_multivector_offsets_impl<0, N, T...> {
+  void operator()(std::array<std::size_t, N> &offsets, std::size_t size) {
+    std::size_t offset = 0;
+    offsets[0] = offset;
+  }
+};
 
 template <typename... T>
 std::array<std::size_t, sizeof...(T)>
 calculate_multivector_offsets(std::size_t size) {
   constexpr std::size_t N = sizeof...(T);
   std::array<std::size_t, N> offsets;
-  fill_multivector_offsets(offsets, size, types<T...>{}, index<N - 1>{});
+  calculate_multivector_offsets_impl<N - 1, N, T...>{}(offsets, size);
   return offsets;
 }
 
@@ -48,30 +50,31 @@ std::size_t calculate_multivector_storage_size(
   return offsets.back() + sizeof(last_type_of<T...>) * size;
 }
 
-template <typename... T>
-void calculate_multivector_pointers_impl(
-    std::tuple<T *...> &arrays,
-    const std::array<std::size_t, sizeof...(T)> &offsets, void *storage,
-    index<-1>) {}
+template <int I, typename... T> struct calculate_multivector_pointers_impl {
+  void operator()(std::tuple<T *...> &arrays,
+                  const std::array<std::size_t, sizeof...(T)> &offsets,
+                  void *storage) {
+    using value_type = nth_type_of<I, T...>;
+    calculate_multivector_pointers_impl<I - 1, T...>{}(arrays, offsets,
+                                                       storage);
+    char *storage_data = reinterpret_cast<char *>(storage);
+    std::get<I>(arrays) =
+        reinterpret_cast<value_type *>(storage_data + offsets[I]);
+  }
+};
 
-template <int I, typename... T>
-void calculate_multivector_pointers_impl(
-    std::tuple<T *...> &arrays,
-    const std::array<std::size_t, sizeof...(T)> &offsets, void *storage,
-    index<I>) {
-  using value_type = nth_type_of<I, T...>;
-  calculate_multivector_pointers_impl(arrays, offsets, storage, index<I - 1>{});
-  char *storage_data = reinterpret_cast<char *>(storage);
-  std::get<I>(arrays) =
-      reinterpret_cast<value_type *>(storage_data + offsets[I]);
-}
+template <typename... T> struct calculate_multivector_pointers_impl<-1, T...> {
+  void operator()(std::tuple<T *...> &arrays,
+                  const std::array<std::size_t, sizeof...(T)> &offsets,
+                  void *storage) {}
+};
 
 template <typename... T>
 std::tuple<T *...> calculate_multivector_pointers(
     const std::array<std::size_t, sizeof...(T)> &offsets, void *storage) {
   constexpr std::size_t N = sizeof...(T);
   std::tuple<T *...> arrays;
-  calculate_multivector_pointers_impl(arrays, offsets, storage, index<N - 1>{});
+  calculate_multivector_pointers_impl<N - 1, T...>{}(arrays, offsets, storage);
   return arrays;
 }
 
@@ -215,6 +218,7 @@ public:
                                 disable_initialization_t,
                                 enable_initialization_t>::type;
 
+  using multivector_type = multivector<types<T...>, Traits>;
   using multivector_base_type = multivector_base<value_types, Traits>;
 
   static constexpr std::size_t value_types_size = value_types::size;
@@ -228,7 +232,7 @@ public:
                 "Initialization can be disabled only for trivial types!");
 
   explicit multivector(const allocator_type &alloc = allocator_type{});
-  template <typename... Args> multivector(size_type size, const Args &... args);
+  multivector(size_type size, const T &... values);
   multivector(size_type size, const allocator_type &alloc = allocator_type{});
   multivector(const multivector &x);
   multivector(multivector &&x) = default;
@@ -259,18 +263,14 @@ public:
   size_type capacity() const noexcept;
 
   void clear() noexcept;
-  template <typename... Args> void push_back(const Args &... args);
+  void push_back(const T &... values);
   void emplace_back();
   void pop_back();
   void resize(size_type requested_size);
-  template <typename... Args>
-  void resize(size_type requested_size, const Args &... args);
+  void resize(size_type requested_size, const T &... values);
   void swap(iterator first, iterator second);
 
 private:
-  void swap_impl(iterator first, iterator second, index<-1>);
-  template <int I> void swap_impl(iterator first, iterator second, index<I>);
-
   multivector_base_type _base;
 };
 
@@ -279,12 +279,11 @@ multivector<types<T...>, Traits>::multivector(const allocator_type &alloc)
     : _base(alloc, 0, 0) {}
 
 template <typename... T, class Traits>
-template <typename... Args>
 multivector<types<T...>, Traits>::multivector(size_type size,
-                                              const Args &... args)
+                                              const T &... values)
     : _base{allocator_type{}, size, size} {
-  std::tuple<const T &...> values{args...};
-  multi_uninitialized_fill(_base._arrays, 0, size, values,
+  std::tuple<const T &...> values_tuple{values...};
+  multi_uninitialized_fill(_base._arrays, 0, size, values_tuple,
                            initialization_strategy);
 }
 
@@ -430,9 +429,8 @@ void multivector<types<T...>, Traits>::clear() noexcept {
 }
 
 template <typename... T, class Traits>
-template <typename... Args>
-void multivector<types<T...>, Traits>::push_back(const Args &... args) {
-  resize(size() + 1, args...);
+void multivector<types<T...>, Traits>::push_back(const T &... values) {
+  resize(size() + 1, values...);
 }
 
 template <typename... T, class Traits>
@@ -448,7 +446,7 @@ void multivector<types<T...>, Traits>::pop_back() {
 template <typename... T, class Traits>
 void multivector<types<T...>, Traits>::resize(size_type requested_size) {
   reserve(requested_size);
-  if (size() < requested_size) {
+  if (requested_size > size()) {
     multi_uninitialized_construct(_base._arrays, size(), requested_size,
                                   initialization_strategy);
   } else {
@@ -459,14 +457,13 @@ void multivector<types<T...>, Traits>::resize(size_type requested_size) {
 }
 
 template <typename... T, class Traits>
-template <typename... Args>
 void multivector<types<T...>, Traits>::resize(size_type requested_size,
-                                              const Args &... args) {
+                                              const T &... values) {
   reserve(requested_size);
-  if (size() < requested_size) {
-    std::tuple<const T &...> values{args...};
-    multi_uninitialized_fill(_base._arrays, size(), requested_size, values,
-                             initialization_strategy);
+  if (requested_size > size()) {
+    std::tuple<const T &...> values_tuple{values...};
+    multi_uninitialized_fill(_base._arrays, size(), requested_size,
+                             values_tuple, initialization_strategy);
   } else {
     multi_destroy(_base._arrays, size(), requested_size,
                   initialization_strategy);
@@ -474,21 +471,22 @@ void multivector<types<T...>, Traits>::resize(size_type requested_size,
   _base._size = requested_size;
 }
 
+template <int I, typename multivector_type> struct swap_impl {
+  using iterator = typename multivector_type::iterator;
+  void operator()(multivector_type &v, iterator first, iterator second) {
+    swap_impl<I - 1, multivector_type>{}(v, first, second);
+    std::swap(v.template get<I>(first), v.template get<I>(second));
+  }
+};
+
+template <typename multivector_type> struct swap_impl<-1, multivector_type> {
+  using iterator = typename multivector_type::iterator;
+  void operator()(multivector_type &, iterator, iterator) {}
+};
+
 template <typename... T, class Traits>
 void multivector<types<T...>, Traits>::swap(iterator first, iterator second) {
-  swap_impl(first, second, index<value_types_size - 1>{});
-}
-
-template <typename... T, class Traits>
-void multivector<types<T...>, Traits>::swap_impl(iterator first,
-                                                 iterator second, index<-1>) {}
-
-template <typename... T, class Traits>
-template <int I>
-void multivector<types<T...>, Traits>::swap_impl(iterator first,
-                                                 iterator second, index<I>) {
-  swap_impl(first, second, index<I - 1>{});
-  std::swap(get<I>(first), get<I>(second));
+  swap_impl<value_types_size - 1, multivector_type>{}(*this, first, second);
 }
 
 } // namespace tl

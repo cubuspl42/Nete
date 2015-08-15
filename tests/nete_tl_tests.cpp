@@ -234,7 +234,7 @@ TEST_CASE("multivector resizing", "[multivector]") {
     REQUIRE(v.capacity() >= size);
 
     int new_size = 16;
-    v.resize(16);
+    v.resize(new_size);
 
     REQUIRE(v.size() == new_size);
     REQUIRE(v.capacity() >= new_size);
@@ -251,11 +251,35 @@ TEST_CASE("multivector resizing", "[multivector]") {
       REQUIRE(v.at<2>(i) == std::string{});
     }
 
+    int newer_size = 16;
+    v.resize(newer_size, e0, e1, e2);
+
+    REQUIRE(v.size() == newer_size);
+    REQUIRE(v.capacity() >= newer_size);
+
+    for (int i = 0; i < size; ++i) {
+      REQUIRE(v.at<0>(i) == e0);
+      REQUIRE(v.at<1>(i) == e1);
+      REQUIRE(v.at<2>(i) == e2);
+    }
+
+    for (int i = size; i < new_size; ++i) {
+      REQUIRE(v.at<0>(i) == char{});
+      REQUIRE(v.at<1>(i) == uint16_t{});
+      REQUIRE(v.at<2>(i) == std::string{});
+    }
+
+    for (int i = new_size; i < newer_size; ++i) {
+      REQUIRE(v.at<0>(i) == e0);
+      REQUIRE(v.at<1>(i) == e1);
+      REQUIRE(v.at<2>(i) == e2);
+    }
+
     int final_size = 8;
     v.resize(final_size);
 
     REQUIRE(v.size() == final_size);
-    REQUIRE(v.capacity() >= new_size);
+    REQUIRE(v.capacity() >= newer_size);
 
     for (int i = 0; i < size; ++i) {
       REQUIRE(v.at<0>(i) == e0);
@@ -613,12 +637,6 @@ TEST_CASE("multivector alignment", "[multivector]") {
     void *d1_ = d1;
     void *d2_ = d2;
 
-    auto max_size = std::numeric_limits<std::size_t>::max();
-
-    REQUIRE(d0_ == std::align(alignof(char), sizeof(char), d0, max_size));
-    REQUIRE(d1_ == std::align(alignof(int), sizeof(int), d1, max_size));
-    REQUIRE(d2_ == std::align(alignof(double), sizeof(double), d2, max_size));
-
     REQUIRE(reinterpret_cast<char *>(d0_) - storage == 0);
     REQUIRE(reinterpret_cast<char *>(d1_) - storage == 8);
     REQUIRE(reinterpret_cast<char *>(d2_) - storage == 32);
@@ -667,6 +685,18 @@ TEST_CASE("multivector initialization", "[multivector]") {
     for (int i = 0; i < size; ++i) {
       REQUIRE(v.at<0>(i) == char{});
       REQUIRE(v.at<1>(i) == uint16_t{});
+    }
+
+    int final_size = 32;
+    v.resize(final_size, 'a', 16);
+
+    for (int i = 0; i < new_size; ++i) {
+      REQUIRE(v.at<0>(i) == char{});
+      REQUIRE(v.at<1>(i) == uint16_t{});
+    }
+    for (int i = new_size; i < final_size; ++i) {
+      REQUIRE(v.at<0>(i) == 'a');
+      REQUIRE(v.at<1>(i) == 16);
     }
   }
 
