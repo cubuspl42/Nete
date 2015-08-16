@@ -171,8 +171,6 @@ public:
   void resize(size_type requested_size, const value_type &val);
 
 private:
-  void reserve(size_type requested_size);
-
   fast_vector_base_type _base;
 };
 
@@ -184,7 +182,7 @@ template <typename T, class Allocator>
 fast_vector<T, Allocator>::fast_vector(size_type size, const value_type &val,
                                        const allocator_type &alloc)
     : _base{alloc, size} {
-  std::uninitialized_fill(_base._data, _base._data + this->size(), val);
+  std::fill(_base._data, _base._data + _base._size, val);
 }
 
 template <typename T, class Allocator>
@@ -195,12 +193,12 @@ fast_vector<T, Allocator>::fast_vector(size_type size,
 template <typename T, class Allocator>
 fast_vector<T, Allocator>::fast_vector(const fast_vector &x)
     : _base{x.get_allocator(), x.size()} {
-  std::uninitialized_copy(x.begin(), x.end(), begin());
+  std::memcpy(data(), x.data(), sizeof(T) * size());
 }
 
 template <typename T, class Allocator>
-auto fast_vector<T, Allocator>::operator=(const fast_vector &x) -> fast_vector
-    & {
+auto fast_vector<T, Allocator>::operator=(const fast_vector &x)
+    -> fast_vector & {
   fast_vector tmp{x};
   std::swap(*this, tmp);
   return *this;
@@ -293,25 +291,19 @@ void fast_vector<T, Allocator>::pop_back() {
 
 template <typename T, class Allocator>
 void fast_vector<T, Allocator>::resize(size_type requested_size) {
-  reserve(requested_size);
+  fast_vector_base_type new_base{get_allocator(), requested_size};
+  auto min_size = std::min(size(), requested_size);
+  std::memcpy(new_base._data, data(), sizeof(T) * min_size);
+  std::swap(_base, new_base);
 }
 
 template <typename T, class Allocator>
 void fast_vector<T, Allocator>::resize(size_type requested_size,
                                        const value_type &val) {
-  reserve(requested_size);
+  resize(requested_size);
   if (size() < requested_size) {
-    std::uninitialized_fill(begin() + size(), begin() + requested_size, val);
+    std::fill(begin() + size(), begin() + requested_size, val);
   }
-  _base._size = requested_size;
-}
-
-template <typename T, class Allocator>
-void fast_vector<T, Allocator>::reserve(size_type requested_size) {
-  fast_vector_base_type new_base{get_allocator(), requested_size};
-  auto min_size = std::min(size(), requested_size);
-  std::uninitialized_copy(begin(), begin() + min_size, new_base._data);
-  std::swap(_base, new_base);
 }
 
 } // namespace tl
