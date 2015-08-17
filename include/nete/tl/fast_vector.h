@@ -300,9 +300,10 @@ void fast_vector<T, Allocator>::resize(size_type requested_size) {
 template <typename T, class Allocator>
 void fast_vector<T, Allocator>::resize(size_type requested_size,
                                        const value_type &val) {
+  auto old_size = size();
   resize(requested_size);
-  if (size() < requested_size) {
-    std::fill(begin() + size(), begin() + requested_size, val);
+  if (requested_size > old_size) {
+    std::fill(begin() + old_size, begin() + requested_size, val);
   }
 }
 
