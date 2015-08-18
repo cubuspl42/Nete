@@ -21,7 +21,7 @@ struct calculate_multivector_offsets_impl {
     using value_type = nth_type_of<I, T...>;
     calculate_multivector_offsets_impl<I - 1, N, T...>{}(offsets, size);
     std::size_t prev_offset = offsets[I - 1];
-    std::size_t offset = next_multiple_of_gte(
+    std::size_t offset = round_up_pot(
         prev_offset + sizeof(prev_value_type) * size, alignof(value_type));
     offsets[I] = offset;
   }

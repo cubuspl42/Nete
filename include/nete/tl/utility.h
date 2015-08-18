@@ -34,9 +34,19 @@ template <typename T> T div_ceil(T a, T b) {
   return (a + b - 1) / b;
 }
 
+template <typename T> T is_power_of_two(T x) {
+  return !(x == 0) && !(x & (x - 1));
+}
+
 // next multiple of `base` that is >= n
-template <typename T> T next_multiple_of_gte(T n, T base) {
+template <typename T> T round_up(T n, T base) {
   return base * div_ceil(n, base);
+}
+
+// next multiple of `base` that is >= n, `base` is power of two
+template <typename T> T round_up_pot(T n, T base) {
+  assert(is_power_of_two(base));
+  return (n + base - 1) & ~(base - 1);
 }
 
 template <std::size_t N, typename Tuple> struct sizeof_tuple_head;
