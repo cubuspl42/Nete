@@ -12,6 +12,10 @@ set(SOURCES
     include/nete/tl/type_traits.h
     include/nete/Entity.h
     include/nete/Component.h
+    include/nete/Signal.h
+    include/nete/SignalBase.h
+    include/nete/Observer.h
+    include/nete/Function.h
     include/nete/nete.h
 )
 
