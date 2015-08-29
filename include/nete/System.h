@@ -20,11 +20,16 @@
  * See LICENSE.txt file for details.
  */
 
-#include "System.h"
-
 namespace nete {
 
-    class Component : public System {
+    class System {
     public:
+        System() = default;
+        virtual ~System() {};
+        System(const System&) = default;
+        System& operator=(const System&) = default;
+        System(System &&) = default;
+        System& operator=(System &&) = default;
+
     };
 }

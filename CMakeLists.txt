@@ -12,6 +12,7 @@ set(SOURCES
     include/nete/tl/type_traits.h
     include/nete/Entity.h
     include/nete/Component.h
+    include/nete/System.h
     include/nete/Signal.h
     include/nete/SignalBase.h
     include/nete/Observer.h
@@ -20,6 +21,7 @@ set(SOURCES
 )
 
 set(TESTS_SOURCES
+    tests/nete_signal_tests.cpp
     tests/nete_tl_tests.cpp
     tests/nete_tests.cpp
 )

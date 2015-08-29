@@ -1,6 +1,7 @@
 #include "catch.hpp"
 
 #include <nete/nete.h>
+#include <nete/tl/multivector.h>
 
 #include <string>
 
